@@ -386,12 +386,24 @@ static void try_connect(h2o_socketpool_connect_request_t *req)
     start_connect_tproxy(req, src, src_len, dst, dst_len);
 }
 
+static h2o_socket_cb socketpool_ssl_cb = NULL;
+void h2o_socketpool_set_ssl_callback(h2o_socket_cb cb) 
+{
+    socketpool_ssl_cb = cb;
+}
+
 static void on_handshake_complete(h2o_socket_t *sock, const char *err)
 {
     h2o_socketpool_connect_request_t *req = sock->data;
 
     assert(req->sock == sock);
 
+    if (req->pool->sockpair.src.len && socketpool_ssl_cb) { /* tproxy session */
+        sock->data = req->data; /* export client to ssl_cb */
+        socketpool_ssl_cb(sock, err);
+        sock->data = req;
+    }
+    
     if (err == h2o_socket_error_ssl_cert_name_mismatch && (SSL_CTX_get_verify_mode(req->pool->_ssl_ctx) & SSL_VERIFY_PEER) == 0) {
         /* ignore CN mismatch if we are not verifying peer */
     } else if (err != NULL) {

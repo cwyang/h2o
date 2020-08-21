@@ -218,7 +218,10 @@ void h2o_socketpool_detach(h2o_socketpool_t *pool, h2o_socket_t *sock);
  * determines if a socket belongs to the socket pool
  */
 static int h2o_socketpool_is_owned_socket(h2o_socketpool_t *pool, h2o_socket_t *sock);
-
+/**
+ * set ssl callback which will be called at ssl handshake completion
+ */
+void h2o_socketpool_set_ssl_callback(h2o_socket_cb cb);
 /* inline defs */
 
 inline uint64_t h2o_socketpool_get_timeout(h2o_socketpool_t *pool)
