@@ -153,10 +153,12 @@ static uint32_t get_max_buffer_size(h2o_httpclient_ctx_t *ctx)
         sz = INT32_MAX;
     return (uint32_t)sz;
 }
-
+#include "h2o/util.h"
 uint32_t h2o_httpclient__h2_get_max_concurrent_streams(h2o_httpclient__h2_conn_t *_conn)
 {
     struct st_h2o_http2client_conn_t *conn = (void *)_conn;
+    h2o_pinfo("max_concurrent_streams - peer_setting: %d ctx_setting: %d",  conn->peer_settings.max_concurrent_streams
+              , conn->super.ctx->http2.max_concurrent_streams);
     return conn->peer_settings.max_concurrent_streams < conn->super.ctx->http2.max_concurrent_streams
                ? conn->peer_settings.max_concurrent_streams
                : conn->super.ctx->http2.max_concurrent_streams;
@@ -765,9 +767,10 @@ static ssize_t expect_settings(struct st_h2o_http2client_conn_t *conn, const uin
     conn->input.read_frame = expect_default;
     return ret;
 }
-
+#include "h2o.h"
 static void close_connection_now(struct st_h2o_http2client_conn_t *conn)
 {
+    h2o_pinfo("destroy http2_conn %p", conn);
     free(conn->super.origin_url.authority.base);
     free(conn->super.origin_url.host.base);
     free(conn->super.origin_url.path.base);
@@ -1269,6 +1272,7 @@ void h2o_httpclient__h2_on_connect(h2o_httpclient_t *_client, h2o_socket_t *sock
     struct st_h2o_http2client_conn_t *conn = sock->data;
     if (conn == NULL) {
         conn = create_connection(stream->super.ctx, sock, origin, stream->super.connpool);
+        h2o_pinfo("create h2_conn: %p (connpool: %p)", conn, stream->super.connpool);
         sock->data = conn;
         /* send preface, settings, and connection-level window update */
         send_client_preface(conn, stream->super.ctx);

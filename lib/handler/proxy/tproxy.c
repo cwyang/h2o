@@ -107,6 +107,7 @@ static h2o_socketpool_t *create_per_client_sockpool(h2o_socketpool_t *base_sockp
     s->sockpair.dst.len = conn->callbacks->get_sockname(conn, (void *)&s->sockpair.dst.bytes);
     h2o_socket_setport((struct sockaddr *)&s->sockpair.src.bytes, 0);
     s->refcnt = 1;
+    h2o_pinfo("create sockpool %p", s);
     return s;
 }
 
@@ -127,6 +128,7 @@ h2o_httpclient_connection_pool_t *h2o_tproxy_get_connpool(h2o_cache_t *cache, h2
         connpool = (void *) cp_ref->value.base;
         connpool->refcnt++;
         h2o_cache_release(cache, cp_ref);
+        h2o_pinfo("USE connpool %p with sockpool %p", connpool, connpool->socketpool);
         return connpool;
     }
 
@@ -160,17 +162,20 @@ h2o_httpclient_connection_pool_t *h2o_tproxy_get_connpool(h2o_cache_t *cache, h2
                   cache_key, hash,
                   h2o_iovec_init(connpool, 1));
 
+    h2o_pinfo("NEW connpool %p with%s sockpool %p", connpool, new_sockpool ? " NEW" : "",  sockpool);
     return connpool;
 }
 
 static void destroy_connpool_entry(h2o_iovec_t value)
 {
+    h2o_pinfo("cache call destroy connpool");
     h2o_httpclient_connection_pool_t *connpool = (void *) value.base;
     h2o_httpclient_connection_pool_dispose(connpool);
 }
 
 static void destroy_sockpool_entry(h2o_iovec_t value)
 {
+    h2o_pinfo("cache call destroy sockpool");
     h2o_socketpool_t *sockpool = (void *) value.base;
     h2o_socketpool_dispose(sockpool);
 }
@@ -182,10 +187,12 @@ h2o_cache_t *h2o_tproxy_create_connpool_cache(size_t pool_duration)
                                           SIZE_MAX,                 /* unlimited size cache*/
                                           pool_duration,           /* duration check */
                                           destroy_sockpool_entry);
+        h2o_pinfo("create sockpool_cache %p", sockpool_cache);
     }
     h2o_cache_t *ret = h2o_cache_create(H2O_CACHE_FLAG_AGE_UPDATE,
                                         SIZE_MAX /* unlimited size cache*/,
                                         pool_duration /* duration check */,
                                         destroy_connpool_entry);
+    h2o_pinfo("create connpool_cache %p", ret);
     return ret;
 }

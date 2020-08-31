@@ -261,6 +261,7 @@ void h2o_socketpool_dispose(h2o_socketpool_t *pool)
     int refcnt = __sync_sub_and_fetch(&pool->refcnt, 1);
 
     if (refcnt > 0) { /* dynamic socketpool with active reference */
+        h2o_pinfo("dispose socketpool %p (refcnt=%d)", pool, refcnt);
         return;
     }
     
@@ -290,6 +291,7 @@ void h2o_socketpool_dispose(h2o_socketpool_t *pool)
     free(pool->targets.entries);
 
     if (refcnt == 0) {  /* free socketpool if dynamically allocated */
+        h2o_pinfo("destroy socketpool %p", pool);
         free(pool);
     }
 }
@@ -405,6 +407,20 @@ static void on_connect(h2o_socket_t *sock, const char *err)
     h2o_socketpool_connect_request_t *req = sock->data;
 
     assert(req->sock == sock);
+    {
+        h2o_sockaddr_pair_t sp;
+        int fd = h2o_socket_get_fd(sock);
+        sp.src.len = sizeof(sp.src.bytes);
+        sp.dst.len = sizeof(sp.dst.bytes);
+        getsockname(fd, (void *)&sp.src.bytes, &sp.src.len);
+        getpeername(fd, (void *)&sp.dst.bytes, &sp.dst.len);
+#define ADDRSTR_LEN 120
+        char buf1[ADDRSTR_LEN], buf2[ADDRSTR_LEN];
+        h2o_addr_to_str((void *)&sp.src.bytes, buf1, ADDRSTR_LEN);
+        h2o_addr_to_str((void *)&sp.dst.bytes, buf2, ADDRSTR_LEN);
+
+        h2o_pinfo("2. connect %s --> %s", buf1, buf2);
+    }
 
     if (err != NULL) {
         __sync_sub_and_fetch(&req->pool->targets.entries[req->selected_target]->_shared.leased_count, 1);
@@ -449,6 +465,13 @@ static void start_connect_tproxy(h2o_socketpool_connect_request_t *req,
     struct on_close_data_t *close_data;
 
     req->sock = h2o_socket_connect_tproxy(req->loop, src, srclen, dst, dstlen, on_connect);
+    {
+        char buf[200], buf2[200];
+        if (srclen) h2o_addr_to_str(src, buf, 200);
+        else strcpy(buf, "NULL");
+        h2o_addr_to_str(dst, buf2, 200);
+        h2o_pinfo("[%s]-->[%s]", buf, buf2);
+    }
     if (req->sock == NULL) {
         __sync_sub_and_fetch(&req->pool->targets.entries[req->selected_target]->_shared.leased_count, 1);
         if (req->remaining_try_count > 0) {

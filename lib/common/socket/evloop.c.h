@@ -473,14 +473,17 @@ h2o_socket_t *h2o_socket_connect_tproxy(h2o_loop_t *loop,
     if (srclen) {       /* tproxy */
         int flag = 1;
         if (setsockopt(fd, SOL_IP, IP_TRANSPARENT, &flag, sizeof(flag)) != 0) {
+            h2o_pinfo("setsockopt(IP_TRANSPARENT) fails: %s", strerror(errno));
             goto Error;
         }
         if (bind(fd, srcaddr, srclen)) {
+            h2o_pinfo("bind fails: %s", strerror(errno));
             goto Error;
         }
     }
 #endif
     if (!(connect(fd, dstaddr, dstlen) == 0 || errno == EINPROGRESS)) {
+        h2o_pinfo("connect error: %s", strerror(errno));
         goto Error;
     }
 

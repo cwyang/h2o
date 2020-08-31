@@ -21,6 +21,7 @@
  */
 
 #include "h2o/httpclient.h"
+#include "h2o/util.h"
 
 const char h2o_httpclient_error_is_eos[] = "end of stream";
 const char h2o_httpclient_error_refused_stream[] = "refused stream";
@@ -49,6 +50,7 @@ h2o_httpclient_connection_pool_t *h2o_httpclient_connection_pool_create(h2o_sock
     h2o_httpclient_connection_pool_t *connpool = h2o_mem_alloc(sizeof(*connpool));
     h2o_httpclient_connection_pool_init(connpool, sockpool);
     connpool->refcnt = 1;
+    h2o_pinfo("create connpool %p with sockpool %p", connpool, sockpool);
     return connpool;
 }
 
@@ -58,8 +60,10 @@ void h2o_httpclient_connection_pool_dispose(h2o_httpclient_connection_pool_t *co
         return;
     
     if (--connpool->refcnt > 0) {
+        h2o_pinfo("dispose connpool %p (refcnt=%d)", connpool, connpool->refcnt);
         return;
     }
+    h2o_pinfo("destroy connpool %p", connpool);
     h2o_socketpool_dispose(connpool->socketpool);
     
     h2o_httpclient__h2_conn_t *http2_conn = NULL;
@@ -144,10 +148,12 @@ static void on_pool_connect(h2o_socket_t *sock, const char *errstr, void *data, 
         h2o_httpclient__h1_on_connect(client, sock, origin);
     } else {
         if (h2o_memis(alpn_proto.base, alpn_proto.len, H2O_STRLIT("h2"))) {
+            h2o_pinfo("h2_on_connect");
             /* detach this socket from the socketpool to count the number of h1 connections correctly */
             h2o_socketpool_detach(client->connpool->socketpool, sock);
             h2o_httpclient__h2_on_connect(client, sock, origin);
         } else if (memcmp(alpn_proto.base, "http/1.1", alpn_proto.len) == 0) {
+            h2o_pinfo("h1_on_connect");
             h2o_httpclient__h1_on_connect(client, sock, origin);
         } else {
             on_connect_error(client, h2o_httpclient_error_unknown_alpn_protocol);
@@ -186,8 +192,11 @@ void h2o_httpclient_connect(h2o_httpclient_t **_client, h2o_mem_pool_t *pool, vo
     h2o_httpclient__h2_conn_t *http2_conn = NULL;
     if (!h2o_linklist_is_empty(&connpool->http2.conns)) {
         http2_conn = H2O_STRUCT_FROM_MEMBER(h2o_httpclient__h2_conn_t, link, connpool->http2.conns.next);
+        h2o_pinfo("checking http2_conn %p", http2_conn);
         if (http2_conn->num_streams >= h2o_httpclient__h2_get_max_concurrent_streams(http2_conn))
             http2_conn = NULL;
+    } else {
+        h2o_pinfo("empty http2_conn");
     }
 
     if (ctx->http2.ratio < 0) {

@@ -35,6 +35,7 @@
 #endif
 #include "picotls.h"
 #include "h2o/socket.h"
+#include "h2o/util.h"
 #include "h2o/multithread.h"
 
 #if defined(__APPLE__) && defined(__clang__)
