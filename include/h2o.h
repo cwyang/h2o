@@ -97,6 +97,8 @@ extern "C" {
 #define H2O_DEFAULT_PROXY_SSL_SESSION_CACHE_CAPACITY 4096
 #define H2O_DEFAULT_PROXY_SSL_SESSION_CACHE_DURATION 86400000 /* 24 hours */
 #define H2O_DEFAULT_PROXY_HTTP2_MAX_CONCURRENT_STREAMS 100
+#define H2O_DEFAULT_PROXY_CONNPOOL_DURATION_IN_SECS 1
+#define H2O_DEFAULT_PROXY_CONNPOOL_DURATION (H2O_DEFAULT_PROXY_CONNPOOL_DURATION_IN_SECS * 1000)
 
 typedef struct st_h2o_conn_t h2o_conn_t;
 typedef struct st_h2o_context_t h2o_context_t;
@@ -463,6 +465,10 @@ struct st_h2o_globalconf_t {
          * a boolean flag if set to true, instructs the proxy to emit a date header, if it's missing from the upstream response
          */
         unsigned emit_missing_date_header : 1;
+        /**
+         * a boolean flag if set to true, instructs the proxy to spoof src IP address.
+         */
+        unsigned spoof_srcaddr : 1;
         /**
          * maximum size to buffer for the response
          */
@@ -1699,6 +1705,10 @@ char *h2o_log_request(h2o_logconf_t *logconf, h2o_req_t *req, size_t *len, char 
  * processes a request (by sending the request upstream)
  */
 void h2o__proxy_process_request(h2o_req_t *req);
+/**
+ * return source request from struct rp_generator_t
+ */
+h2o_req_t *h2o__proxy_get_srcreq(void *data);
 
 /* mime mapper */
 
@@ -2011,6 +2021,8 @@ typedef struct st_h2o_proxy_config_vars_t {
     uint64_t keepalive_timeout;
     unsigned preserve_host : 1;
     unsigned use_proxy_protocol : 1;
+    unsigned spoof_srcaddr : 1;
+    uint64_t connpool_duration;
     struct {
         int enabled;
         uint64_t timeout;
@@ -2350,4 +2362,5 @@ COMPUTE_DURATION(proxy_total_time, &req->proxy_stats.timestamps.request_begin_at
 }
 #endif
 
+#include "h2o/util.h"
 #endif
