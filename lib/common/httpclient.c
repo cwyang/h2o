@@ -21,7 +21,7 @@
  */
 
 #include "h2o/httpclient.h"
-#include "h2o/util.h"
+#include "h2o.h"
 
 const char h2o_httpclient_error_is_eos[] = "end of stream";
 const char h2o_httpclient_error_refused_stream[] = "refused stream";
@@ -145,7 +145,13 @@ static void on_pool_connect(h2o_socket_t *sock, const char *errstr, void *data, 
 
     h2o_iovec_t alpn_proto;
     if (sock->ssl == NULL || (alpn_proto = h2o_socket_ssl_get_selected_protocol(sock)).len == 0) {
-        h2o_httpclient__h1_on_connect(client, sock, origin);
+        /* HERE */
+        h2o_req_t *src_req = h2o__proxy_get_srcreq(client->data);
+        if (src_req->conn->upstream.use_http2_over_plain) {
+            h2o_socketpool_detach(client->connpool->socketpool, sock);
+            h2o_httpclient__h2_on_connect(client, sock, origin);
+        } else
+            h2o_httpclient__h1_on_connect(client, sock, origin);
     } else {
         if (h2o_memis(alpn_proto.base, alpn_proto.len, H2O_STRLIT("h2"))) {
             h2o_pinfo("h2_on_connect");

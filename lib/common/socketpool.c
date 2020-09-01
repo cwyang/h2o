@@ -447,13 +447,15 @@ static void on_connect(h2o_socket_t *sock, const char *err)
         h2o_url_t *target_url = &req->pool->targets.entries[req->selected_target]->url;
         if (target_url->scheme->is_ssl) {
             assert(req->pool->_ssl_ctx != NULL && "h2o_socketpool_set_ssl_ctx must be called for a pool that contains SSL target");
+            h2o_httpclient_t *client = req->data;
+            h2o_req_t *src_req = h2o__proxy_get_srcreq(client->data);
+            SSL_CTX *ssl_ctx = src_req->conn->upstream.ssl_ctx ? src_req->conn->upstream.ssl_ctx : req->pool->_ssl_ctx;
+            h2o_iovec_t alpn_protos = src_req->conn->upstream.suppress_alpn ? h2o_iovec_init(NULL, 0) : req->alpn_protos;
+            char *host = target_url->host.base;
             if  (req->pool->targets.entries[req->selected_target]->type == H2O_SOCKETPOOL_TYPE_TPROXY) {
-                h2o_httpclient_t *client = req->data;
-                h2o_req_t *src_req = h2o__proxy_get_srcreq(client->data);
-                char *host = h2o_strdup(&src_req->pool, src_req->input.authority.base, src_req->input.authority.len).base;
-                h2o_socket_ssl_handshake(sock, req->pool->_ssl_ctx, host, req->alpn_protos, on_handshake_complete);
-            } else
-                h2o_socket_ssl_handshake(sock, req->pool->_ssl_ctx, target_url->host.base, req->alpn_protos, on_handshake_complete);
+                host = h2o_strdup(&src_req->pool, src_req->input.authority.base, src_req->input.authority.len).base;
+            } 
+            h2o_socket_ssl_handshake(sock, ssl_ctx, host, alpn_protos, on_handshake_complete);
             return;
         }
     }

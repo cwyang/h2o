@@ -382,7 +382,7 @@ void close_connection_now(h2o_http2_conn_t *conn)
 
     if (conn->sock != NULL)
         h2o_socket_close(conn->sock);
-    free(conn);
+    h2o_dispose_connection(&conn->super);
 }
 
 int close_connection(h2o_http2_conn_t *conn)

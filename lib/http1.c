@@ -151,7 +151,7 @@ static void close_connection(struct st_h2o_http1_conn_t *conn, int close_socket)
     if (conn->sock != NULL && close_socket)
         h2o_socket_close(conn->sock);
     h2o_linklist_unlink(&conn->_conns);
-    free(conn);
+    h2o_dispose_connection(&conn->super);
 }
 
 static void cleanup_connection(struct st_h2o_http1_conn_t *conn)

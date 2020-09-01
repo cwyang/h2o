@@ -1431,7 +1431,7 @@ static void on_h3_destroy(h2o_quic_conn_t *h3_)
     assert(conn->scheduler.reqs.active.smallest_urgency > H2O_ABSPRIO_URGENCY_MAX);
     assert(h2o_linklist_is_empty(&conn->scheduler.reqs.conn_blocked));
 
-    free(conn);
+    h2o_dispose_connection(&conn->super);
 }
 
 h2o_http3_conn_t *h2o_http3_server_accept(h2o_http3_server_ctx_t *ctx, quicly_address_t *destaddr, quicly_address_t *srcaddr,
@@ -1492,7 +1492,7 @@ h2o_http3_conn_t *h2o_http3_server_accept(h2o_http3_server_ctx_t *ctx, quicly_ad
 #endif
     if (accept_ret != 0) {
         h2o_http3_dispose_conn(&conn->h3);
-        free(conn);
+        h2o_dispose_connection(&conn->super);
         return NULL;
     }
     ++ctx->super.next_cid.master_id; /* FIXME check overlap */

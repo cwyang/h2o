@@ -923,6 +923,28 @@ struct st_h2o_conn_t {
      * callbacks
      */
     const h2o_conn_callbacks_t *callbacks;
+    struct 
+    {
+        /**
+         * ssl_ctx to use to connect upstream
+         */
+        SSL_CTX *ssl_ctx;
+        /**
+         * If set, h2o does not advertise alpn and use http1 over ssl connection.
+         */
+        unsigned suppress_alpn : 1;
+        /**
+         * If set, h2o connect to peer with http2 over plain connection.
+         * In case of ssl connection, h2o respect negotiated alpn.
+         */
+        unsigned use_http2_over_plain : 1;
+    } upstream;
+        
+    /**
+     * user-supplied data and data free callback
+     */
+    void *data;
+    void (*data_free_cb)(void *);
 };
 
 /**
@@ -2137,9 +2159,29 @@ inline h2o_conn_t *h2o_create_connection(size_t sz, h2o_context_t *ctx, h2o_host
 #endif
     conn->callbacks = callbacks;
 
+    conn->data = NULL;
+    conn->data_free_cb = NULL;
+    conn->upstream.ssl_ctx = NULL;
+    conn->upstream.suppress_alpn = 0;
+    conn->upstream.use_http2_over_plain = 0;
     return conn;
 }
 
+static inline void h2o_dispose_connection(h2o_conn_t *conn) 
+{
+    if (conn->data_free_cb)
+        conn->data_free_cb(conn->data);
+    if (conn->upstream.ssl_ctx)
+        SSL_CTX_free(conn->upstream.ssl_ctx);
+    free(conn);
+}
+
+static inline void h2o_conn_attach_data(h2o_conn_t *conn, void *data, void *cb) 
+{
+    conn->data = data;
+    conn->data_free_cb = cb;
+}
+    
 inline int h2o_conn_is_early_data(h2o_conn_t *conn)
 {
     ptls_t *tls;
